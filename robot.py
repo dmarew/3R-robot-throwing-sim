@@ -99,6 +99,7 @@ class Arm:
         G[2] = m3*L3*c123*GRAVITY
 
         F[0] = F[1] = F[2] = 0.0
+
         return M, V, G, F
     def accelerations(self, M, V, G, F):
       args = []
@@ -106,6 +107,7 @@ class Arm:
       for i in range(NJOINTS):
           args.append(self.links[i + 1].torque - V[i] - G[i] - F[i])
       theta_ddot = np.matmul(Minv, np.array(args))
+      print(theta_ddot)
       return theta_ddot
     def euler(self, acc):
         # update positions and velocities of roger's manipulator
@@ -136,7 +138,7 @@ class Arm:
               while(self.links[i].theta > (M_PI)):
                   self.links[i].theta += 2.0*M_PI
     def update_state(self):
-      # update transforms that describe configuration of the self
+      # update transforms that describe configuration of the robot
         for i in range(NFRAMES):
             if self.links[i].axis == XAXIS:
                 if (self.links[i].dof_type == REVOLUTE):
@@ -168,10 +170,12 @@ class Arm:
     def simulate(self):
         self.euler(self.accelerations(*self.dynamics()))
     def control(self):
+        print("controller called")
         joint = 0
         if self.mode==FREEFALL:
             for i in range(NJOINTS):
                 self.links[i].torque=0.0
+            return
         elif self.mode==PD_CONTROL:
 
             for i in range(NARMS):

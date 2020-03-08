@@ -23,9 +23,11 @@ class Window(QMainWindow):
         self.clock = 0
         self.servo = SERVO_RATE
         self.render = RENDER_RATE
+        self.arm.update_state()
+        self.arm.simulate()
         self.timer = QTimer()
-        self.timer.timeout.connect(self.update)
-        self.timer.start(DT*1000)
+        self.timer.timeout.connect(self.update_control)
+        self.timer.start(DT)
 
         self.InitWindow()
 
@@ -35,21 +37,21 @@ class Window(QMainWindow):
         self.setGeometry(self.top, self.left, self.width, self.height)
         self.show()
 
-    def update(self):
-
-        if self.servo == SERVO_RATE:
-            self.arm.control()
-            self.servo = 1
+    def update_control(self):
+        print('i am here'*5, self.servo)
+        #if self.servo == SERVO_RATE:
+        self.arm.control()
+        self.servo = 1
         self.servo += 1
-
         self.arm.simulate()
 
         if self.render == RENDER_RATE:
-            self.drawAll()
+            self.update()
             self.render = 1
         self.render += 1
         self.clock += DT
-        print('timer ', self.clock)
+        #print('timer ', self.clock)
+        print(self.arm.links[1].torque)
 
     def paintEvent(self, event):
 
@@ -89,8 +91,7 @@ class Window(QMainWindow):
     def drawAll(self):
         painter = QPainter(self)
         self.drawRobot(painter)
-        self.drawRobot(painter)
-        self.drawBall
+        self.drawBall()
 if __name__ == '__main__':
     App = QApplication(sys.argv)
     window = Window()
