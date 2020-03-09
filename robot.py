@@ -225,7 +225,7 @@ class Arm:
 
                 self.links[1].torque = -TORQUE_MAX
                 if( not self.joint_state[0]):
-                    print('first joint started excution at ', clock)
+                    #print('first joint started excution at ', clock)
                     self.joint_state[0] = True
                     self.joint_execution_time[0] = clock
                 # PDcontrol - desired accelerations
@@ -249,7 +249,7 @@ class Arm:
                     # self.throw_sequence = 1
             elif self.throw_sequence==1:
                 if( not self.joint_state[1]):
-                    print('delta_t1', clock-self.joint_execution_time[0])
+                    #print('delta_t1', clock-self.joint_execution_time[0])
                     self.joint_state[1] = True
                     self.joint_execution_time[1] = clock
                 self.links[1].torque = -TORQUE_MAX
@@ -267,7 +267,7 @@ class Arm:
                 # (self.links[1].theta > 0.0)):self.throw_sequence = 2
             elif self.throw_sequence==2:
                 if( not self.joint_state[2]):
-                    print('delta_t2', clock-self.joint_execution_time[1])
+                    #print('delta_t2', clock-self.joint_execution_time[1])
                     self.joint_state[2] = True
                     self.joint_execution_time[2] = clock
                 self.links[1].torque = -TORQUE_MAX
@@ -289,9 +289,9 @@ class Arm:
 
                 phi = np.arctan2(ydot, xdot)
                 #if ((phi>0.0) and (phi<RELEASE_POINT)):
-                if (phi>0.0) and (clock-self.joint_execution_time[2])>self.delta_ts[3]:
+                if (clock-self.joint_execution_time[2])>self.delta_ts[3]:
                     if( not self.joint_state[3]):
-                        print('delta_t3', clock-self.joint_execution_time[2])
+                        #print('delta_t3', clock-self.joint_execution_time[2])
                         self.joint_state[3] = True
                         self.joint_execution_time[3] = clock
                     self.release = True

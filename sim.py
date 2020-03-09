@@ -17,7 +17,7 @@ from robot import Arm
 from ball import Ball
 class Window(QMainWindow):
 
-    def __init__(self, control_params=None):
+    def __init__(self, sim_id, control_params, sim_time):
 
         super().__init__()
         self.title = "3R Pitcher"
@@ -26,10 +26,9 @@ class Window(QMainWindow):
         self.width = WIDTH
         self.height = HEIGHT
 
-
+        self.sim_id = sim_id
         sys.excepthook = Pyro4.util.excepthook
         self.simco_server = Pyro4.Proxy("PYRO:interface@localhost:53546")
-        self.simco_server.test()
         self.arm = Arm()
         self.arm.mode = THROW
         self.ball = Ball(self.arm, M_OBJECT, [1.0, 1.0], [0, 0], [0, 0])
@@ -42,9 +41,9 @@ class Window(QMainWindow):
         self.ball.simulate()
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_control)
-        self.timer.start(10000*DT)
-        self.spline_log_file = open('spline.txt', 'w')
-        self.ball_pos_log_file = open('ball_pos.txt', 'w')
+        self.timer.start(sim_time)
+        self.spline_log_file = open('results/sim_{}_spline.txt'.format(self.sim_id), 'w')
+        self.ball_pos_log_file = open('results/sim_{}_ball_pos.txt'.format(self.sim_id), 'w')
         self.InitWindow()
 
     def InitWindow(self):
@@ -70,16 +69,18 @@ class Window(QMainWindow):
                                    str(self.arm.links[3].theta) + ', ' +
                                    str(self.arm.links[1].theta_dot) + ', ' +
                                    str(self.arm.links[2].theta_dot) + ', ' +
-                                   str(self.arm.links[3].theta_dot) +
+                                   str(self.arm.links[3].theta_dot) + ', ' +
                                    str(self.arm.links[1].torque) + ', ' +
                                    str(self.arm.links[2].torque) + ', ' +
-                                   str(self.arm.links[3].torque) + ', ' +
+                                   str(self.arm.links[3].torque) +
                                    '\n')
         self.ball_pos_log_file.write(str(self.ball.position[X]) + ', ' +
                                 str(self.ball.position[Y]) + '\n')
         if(self.arm.release and np.abs(self.ball.position[Y])<0.001):
-            self.simco_server.report_result(self.ball.position[X])
-            print('ball x:{} y:{}'.format(self.ball.position[X], self.ball.position[Y]))
+            self.simco_server.report_result({'id': self.sim_id, 'distance': self.ball.position[X]})
+            print('Sim {} done with distance {}'.format(self.sim_id, self.ball.position[X]))
+            exit(0)
+
     def paintEvent(self, event):
 
         painter = QPainter(self)
@@ -128,12 +129,16 @@ if __name__ == '__main__':
     parser.add_argument('--delta_t1', required=False, type=float)
     parser.add_argument('--delta_t2', required=False, type=float)
     parser.add_argument('--delta_t3', required=False, type=float)
+    parser.add_argument('--sim_id', required=False, default=0, type=int)
+    parser.add_argument('--sim_time', required=False, default=5.0, type=float)
+
+
     args = parser.parse_args()
 
-    control_params = [args.delta_t1, args.delta_t2, args.delta_t3]
+    control_params = [0.0, args.delta_t1, args.delta_t2, args.delta_t3]
     if None in control_params:
         control_params = None
 
     App = QApplication(sys.argv)
-    window = Window(control_params)
+    window = Window(args.sim_id, control_params, args.sim_time)
     sys.exit(App.exec())

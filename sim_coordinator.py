@@ -12,7 +12,7 @@ class Interface(object):
         return res
 
     def report_result(self, result):
-        print('result', result)
+        print('result: ', result['id'], result['distance'])
 class Server():
     def enable(self):
         self.daemon = Pyro4.Daemon(port=53546)
