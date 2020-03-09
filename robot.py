@@ -20,6 +20,7 @@ class Arm:
         self.throw_sequence = 0
         self.mode = FREEFALL
         self.setup_links()
+        self.file = open('log.txt', 'w')
 
     def setup_links(self):
 
@@ -100,6 +101,7 @@ class Arm:
 
         F[0] = F[1] = F[2] = 0.0
 
+        print('G:', G)
         return M, V, G, F
     def accelerations(self, M, V, G, F):
       args = []
@@ -107,7 +109,12 @@ class Arm:
       for i in range(NJOINTS):
           args.append(self.links[i + 1].torque - V[i] - G[i] - F[i])
       theta_ddot = np.matmul(Minv, np.array(args))
-      print(theta_ddot)
+      print('theta ddot ', theta_ddot)
+      self.file.write('theta ddot: ' + np.array_str(theta_ddot)+
+                      ' V: ' + np.array_str(V) +
+                      ' G: ' + np.array_str(G) +
+                      ' M: ' + np.array_str(M) +
+                      '\n')
       return theta_ddot
     def euler(self, acc):
         # update positions and velocities of roger's manipulator
@@ -129,6 +136,9 @@ class Arm:
                         self.links[i].theta = l[joint+1]
                         self.links[i].theta_dot = 0.0
                     joint += 1
+            self.file.write('link '+ str(i) + ' theta: ' +str(self.links[i].theta)+
+                      ' theta dot: ' + str(self.links[i].theta_dot) +
+                      '\n')
         self.rectify_theta()
         self.update_state()
     def rectify_theta(self):

@@ -27,7 +27,7 @@ class Window(QMainWindow):
         self.arm.simulate()
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_control)
-        self.timer.start(DT)
+        self.timer.start(10000*DT)
 
         self.InitWindow()
 
@@ -38,11 +38,10 @@ class Window(QMainWindow):
         self.show()
 
     def update_control(self):
-        print('i am here'*5, self.servo)
         #if self.servo == SERVO_RATE:
-        self.arm.control()
-        self.servo = 1
-        self.servo += 1
+        #self.arm.control()
+        #self.servo = 1
+        #self.servo += 1
         self.arm.simulate()
 
         if self.render == RENDER_RATE:
@@ -51,7 +50,7 @@ class Window(QMainWindow):
         self.render += 1
         self.clock += DT
         #print('timer ', self.clock)
-        print(self.arm.links[1].torque)
+        print('torques: ', self.arm.links[1].torque, self.arm.links[2].torque, self.arm.links[3].torque)
 
     def paintEvent(self, event):
 
@@ -75,8 +74,8 @@ class Window(QMainWindow):
     def drawRobot(self, painter):
         self.drawRobotChassis(painter)
         temp0 = self.arm.links[0].iTj
-        for i in range(NFRAMES):
-            temp1 = np.matmul(self.arm.links[i].iTj, temp0)
+        for i in range(1, NFRAMES):
+            temp1 = np.matmul(temp0, self.arm.links[i].iTj)
             painter.setPen(Qt.red)
             painter.setBrush(QBrush(Qt.red, Qt.SolidPattern))
             painter.drawLine(W2DX(temp0[0][3]), W2DY(temp0[1][3]),
