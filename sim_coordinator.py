@@ -13,7 +13,7 @@ class Server():
         self.daemon.register(Interface, "interface")
         self.thread = threading.Thread(target=self.daemonLoop)
         self.thread.start()
-        print("Started thread")
+        print("Started sim coordinator server")
 
     def disable(self):
         print("Called for daemon shutdown")
@@ -23,8 +23,7 @@ class Server():
         self.daemon.requestLoop()
         print("Daemon has shut down no prob")
 
-# Run the server for 30 sec (I was too lazy to write a main() func)
-s = Server()
-s.enable()
-# time.sleep(60)
-# s.disable()
+if __name__ == '__main__':
+    s = Server()
+    s.enable()
+    # s.disable()
