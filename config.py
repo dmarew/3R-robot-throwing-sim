@@ -8,9 +8,9 @@ BOX = 18
 BOXW = WIDTH//4 - 4
 
 # sub-panel geometry and placement
-CENTER_X = 60
-CENTER_Y = 260
-SCALE = 200.0
+CENTER_X = 120
+CENTER_Y = 200
+SCALE = 60.0
 
 # world to pixmap panels (drawing) transformations
 W2DR = lambda num: int(SCALE*1000*num)//1000
@@ -25,6 +25,7 @@ D2WY = lambda num: float(CENTER_Y-num)/SCALE
 FREEFALL =0
 PD_CONTROL= 1
 THROW=  2
+TD_CONTROL = 3
 TORQUE_MAX=20.0
 KP_ARM = 9000.0
 KD_ARM = 200.0
@@ -48,11 +49,11 @@ M1 = 1.0
 M2 = 1.0
 M3 = 0.8
 THETA1_HOME = 0.0
-THETA1_REF = (M_PI/2.0)
+THETA1_REF = M_PI/2.0
 THETA2_HOME = 0.0
-THETA2_REF = (5.0*M_PI/8.0)
+THETA2_REF = 5.0*M_PI/8.0
 THETA3_HOME = 0.0
-THETA3_REF = (M_PI/2.0)
+THETA3_REF = M_PI/2.0
 
 RELEASE_POINT = (M_PI/4.0)
 
@@ -67,7 +68,7 @@ YAXIS = 1
 ZAXIS = 2
 #BALL
 R_OBJ=0.0508 # m - regulation baseball */
-M_OBJECT= 0.1421 # kg - regulation baseball */
+M_OBJECT= 0.1421*2.0# kg - regulation baseball */
 X = 0
 Y = 1
 XDOT = 2

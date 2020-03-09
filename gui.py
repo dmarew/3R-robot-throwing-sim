@@ -5,12 +5,19 @@ from PyQt5.QtGui import QPainter, QBrush, QPen
 from PyQt5.QtCore import Qt, QRunnable, QThreadPool, QTimer
 import numpy as np
 import sys
+import argparse
+import Pyro4
+from Pyro4.errors import CommunicationError
+import os, sys, struct
+
+
 from utils import *
 from config import *
 from robot import Arm
+from ball import Ball
 class Window(QMainWindow):
 
-    def __init__(self):
+    def __init__(self, control_params=None):
 
         super().__init__()
         self.title = "3R Pitcher"
@@ -18,17 +25,26 @@ class Window(QMainWindow):
         self.left= 150
         self.width = WIDTH
         self.height = HEIGHT
+
+
+        sys.excepthook = Pyro4.util.excepthook
+        self.simco_server = Pyro4.Proxy("PYRO:interface@localhost:53546")
+        self.simco_server.test()
         self.arm = Arm()
         self.arm.mode = THROW
+        self.ball = Ball(self.arm, M_OBJECT, [1.0, 1.0], [0, 0], [0, 0])
         self.clock = 0
         self.servo = SERVO_RATE
         self.render = RENDER_RATE
+        self.control_params = control_params
         self.arm.update_state()
         self.arm.simulate()
+        self.ball.simulate()
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_control)
         self.timer.start(10000*DT)
-
+        self.spline_log_file = open('spline.txt', 'w')
+        self.ball_pos_log_file = open('ball_pos.txt', 'w')
         self.InitWindow()
 
     def InitWindow(self):
@@ -39,23 +55,35 @@ class Window(QMainWindow):
 
     def update_control(self):
         #if self.servo == SERVO_RATE:
-        #self.arm.control()
+        self.arm.control(self.clock, control_params)
         #self.servo = 1
         #self.servo += 1
         self.arm.simulate()
-
+        self.ball.simulate()
         if self.render == RENDER_RATE:
             self.update()
             self.render = 1
         self.render += 1
         self.clock += DT
-        #print('timer ', self.clock)
-        print('torques: ', self.arm.links[1].torque, self.arm.links[2].torque, self.arm.links[3].torque)
-
+        self.spline_log_file.write(str(self.arm.links[1].theta) + ', ' +
+                                   str(self.arm.links[2].theta) + ', ' +
+                                   str(self.arm.links[3].theta) + ', ' +
+                                   str(self.arm.links[1].theta_dot) + ', ' +
+                                   str(self.arm.links[2].theta_dot) + ', ' +
+                                   str(self.arm.links[3].theta_dot) +
+                                   str(self.arm.links[1].torque) + ', ' +
+                                   str(self.arm.links[2].torque) + ', ' +
+                                   str(self.arm.links[3].torque) + ', ' +
+                                   '\n')
+        self.ball_pos_log_file.write(str(self.ball.position[X]) + ', ' +
+                                str(self.ball.position[Y]) + '\n')
+        if(self.arm.release and np.abs(self.ball.position[Y])<0.001):
+            self.simco_server.report_result(self.ball.position[X])
+            print('ball x:{} y:{}'.format(self.ball.position[X], self.ball.position[Y]))
     def paintEvent(self, event):
 
         painter = QPainter(self)
-        self.drawRobot(painter)
+        self.drawAll(painter)
 
     def drawRobotChassis(self, painter):
         painter.setRenderHint(QPainter.Antialiasing)
@@ -85,13 +113,27 @@ class Window(QMainWindow):
                                 2*W2DR(R_JOINT),
                                 2*W2DR(R_JOINT))
             temp0 = temp1
-    def drawBall(self):
-        pass
-    def drawAll(self):
-        painter = QPainter(self)
+    def drawBall(self, painter):
+        painter.drawEllipse(W2DX(self.ball.position[X]),
+                            W2DY(self.ball.position[Y]),
+                            2*W2DR(R_OBJ),
+                            2*W2DR(R_OBJ))
+    def drawAll(self, painter):
         self.drawRobot(painter)
-        self.drawBall()
+        self.drawBall(painter)
 if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(description='Short sample app')
+
+    parser.add_argument('--delta_t1', required=False, type=float)
+    parser.add_argument('--delta_t2', required=False, type=float)
+    parser.add_argument('--delta_t3', required=False, type=float)
+    args = parser.parse_args()
+
+    control_params = [args.delta_t1, args.delta_t2, args.delta_t3]
+    if None in control_params:
+        control_params = None
+
     App = QApplication(sys.argv)
-    window = Window()
+    window = Window(control_params)
     sys.exit(App.exec())

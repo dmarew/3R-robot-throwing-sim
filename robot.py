@@ -13,11 +13,15 @@ class Link:
         self.theta_dot_ref = theta_dot_ref
         self.torque = torque
         self.ext_force = ext_force
+
 class Arm:
     def __init__(self):
 
         self.release = False
         self.throw_sequence = 0
+        self.joint_state = [False, False, False, False]
+        self.joint_execution_time = [0.0, 0.0, 0.0, 0.0]
+        self.delta_ts = [0.0, 0.2190, 0.0865, 0.02050]
         self.mode = FREEFALL
         self.setup_links()
         self.file = open('log.txt', 'w')
@@ -100,8 +104,6 @@ class Arm:
         G[2] = m3*L3*c123*GRAVITY
 
         F[0] = F[1] = F[2] = 0.0
-
-        print('G:', G)
         return M, V, G, F
     def accelerations(self, M, V, G, F):
       args = []
@@ -109,7 +111,7 @@ class Arm:
       for i in range(NJOINTS):
           args.append(self.links[i + 1].torque - V[i] - G[i] - F[i])
       theta_ddot = np.matmul(Minv, np.array(args))
-      print('theta ddot ', theta_ddot)
+
       self.file.write('theta ddot: ' + np.array_str(theta_ddot)+
                       ' V: ' + np.array_str(V) +
                       ' G: ' + np.array_str(G) +
@@ -138,15 +140,17 @@ class Arm:
                     joint += 1
             self.file.write('link '+ str(i) + ' theta: ' +str(self.links[i].theta)+
                       ' theta dot: ' + str(self.links[i].theta_dot) +
+                      ' theta ref: ' +str(self.links[i].theta_ref) +
+                      ' theta dot ref: ' + str(self.links[i].theta_dot_ref) +
                       '\n')
         self.rectify_theta()
         self.update_state()
     def rectify_theta(self):
           for i in range(NJOINTS):
-              while(self.links[i].theta < (-M_PI)):
+              while self.links[i].theta < -M_PI:
                   self.links[i].theta += 2.0*M_PI
-              while(self.links[i].theta > (M_PI)):
-                  self.links[i].theta += 2.0*M_PI
+              while self.links[i].theta > M_PI:
+                  self.links[i].theta -= 2.0*M_PI
     def update_state(self):
       # update transforms that describe configuration of the robot
         for i in range(NFRAMES):
@@ -179,8 +183,9 @@ class Arm:
                     self.links[i].iTj[2][3] = l[i-1] + self.links[i].theta
     def simulate(self):
         self.euler(self.accelerations(*self.dynamics()))
-    def control(self):
-        print("controller called")
+    def control(self, clock, control_params):
+        if control_params is not None:
+            self.delta_ts = control_params
         joint = 0
         if self.mode==FREEFALL:
             for i in range(NJOINTS):
@@ -189,6 +194,7 @@ class Arm:
         elif self.mode==PD_CONTROL:
 
             for i in range(NARMS):
+                acc = np.zeros(3)
                 for j in range(NFRAMES):
                     if (self.links[j].dof_type == REVOLUTE):
                         #PDcontrol - desired accelerations
@@ -201,14 +207,27 @@ class Arm:
                 tmp = np.matmul(M, acc)
 
                 joint=0
-                for j in range(NselfS):
+                for j in range(NFRAMES):
                     if self.links[j].dof_type == REVOLUTE:
                         self.links[j].torque = tmp[joint] +V[joint] + G[joint]
                         joint += 1
         elif self.mode==THROW:
-            if self.throw_sequence == 0:
-                self.links[1].torque = -TORQUE_MAX
+            #print(self.throw_sequence)
+            #if self.throw_sequence == 0:
+            if self.joint_state[1] and (clock-self.joint_execution_time[1])>self.delta_ts[2]:
+                self.throw_sequence = 2
+            elif self.joint_state[0] and (clock-self.joint_execution_time[0])>self.delta_ts[1]:
+                self.throw_sequence = 1
+            else:
+                self.throw_sequence = 0
 
+            if self.throw_sequence == 0:
+
+                self.links[1].torque = -TORQUE_MAX
+                if( not self.joint_state[0]):
+                    print('first joint started excution at ', clock)
+                    self.joint_state[0] = True
+                    self.joint_execution_time[0] = clock
                 # PDcontrol - desired accelerations
                 theta_error = self.links[2].theta_ref - self.links[2].theta
                 if theta_error > M_PI: theta_error -= 2.0*M_PI
@@ -226,9 +245,13 @@ class Arm:
                 if torq<-TORQUE_MAX: torq=-TORQUE_MAX
                 self.links[3].torque = torq
 
-                if ((self.links[1].theta < M_PI) and (self.links[1].theta > M_PI/2)):
-                    self.throw_sequence = 1
+                # if ((self.links[1].theta < M_PI) and (self.links[1].theta > M_PI/2)):
+                    # self.throw_sequence = 1
             elif self.throw_sequence==1:
+                if( not self.joint_state[1]):
+                    print('delta_t1', clock-self.joint_execution_time[0])
+                    self.joint_state[1] = True
+                    self.joint_execution_time[1] = clock
                 self.links[1].torque = -TORQUE_MAX
                 self.links[2].torque = -TORQUE_MAX
 
@@ -240,9 +263,13 @@ class Arm:
                 if torq<-TORQUE_MAX: torq = -TORQUE_MAX
                 self.links[3].torque = torq
 
-                if (((self.links[1].theta+self.links[2].theta) < 3.0*M_PI/4.0) and
-                (self.links[1].theta > 0.0)):self.throw_sequence = 2
+                # if (((self.links[1].theta+self.links[2].theta) < 3.0*M_PI/4.0) and
+                # (self.links[1].theta > 0.0)):self.throw_sequence = 2
             elif self.throw_sequence==2:
+                if( not self.joint_state[2]):
+                    print('delta_t2', clock-self.joint_execution_time[1])
+                    self.joint_state[2] = True
+                    self.joint_execution_time[2] = clock
                 self.links[1].torque = -TORQUE_MAX
                 self.links[2].torque = -TORQUE_MAX
                 self.links[3].torque = -TORQUE_MAX
@@ -261,10 +288,16 @@ class Arm:
                 ydot = dydt1*self.links[1].theta_dot + dydt2*self.links[2].theta_dot + dydt3*self.links[3].theta_dot
 
                 phi = np.arctan2(ydot, xdot)
-                if ((phi>0.0) and (phi<RELEASE_POINT)):
+                #if ((phi>0.0) and (phi<RELEASE_POINT)):
+                if (phi>0.0) and (clock-self.joint_execution_time[2])>self.delta_ts[3]:
+                    if( not self.joint_state[3]):
+                        print('delta_t3', clock-self.joint_execution_time[2])
+                        self.joint_state[3] = True
+                        self.joint_execution_time[3] = clock
                     self.release = True
-                    self.mode = FREEFALL
-                    self.throw_sequence = 0
+                    self.mode = PD_CONTROL
+                    # self.throw_sequence = 0
+            #print(self.throw_sequence)
 if __name__ == '__main__':
     arm = Arm()
     arm.simulate()
