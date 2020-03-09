@@ -5,12 +5,6 @@ import time
 @Pyro4.expose
 @Pyro4.behavior(instance_mode="single")
 class Interface(object):
-
-    def test(self):
-        res = "test_string"
-        print("Test returning:"+res)
-        return res
-
     def report_result(self, result):
         print('result: ', result['id'], result['distance'])
 class Server():
