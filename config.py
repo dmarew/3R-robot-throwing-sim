@@ -29,6 +29,10 @@ TD_CONTROL = 3
 TORQUE_MAX=20.0
 KP_ARM = 9000.0
 KD_ARM = 200.0
+SIM_TIME = 0.1
+DISPLAY_ON = 1
+DISPLAY_OFF = 0
+
 TIMEOUT = 60     #   /* seconds worth of simulation       */
 DT =  0.0005   #/* the time increment between frames */
 RENDER_RATE = 20        #/* render every twentieth state      */
@@ -78,3 +82,6 @@ SGN = lambda x: 1.0 if x > 0 else -1.0
 SQR = lambda x: x*x
 MIN = lambda x, y: x if x < y else y
 MAX = lambda x, y: x if x > y else y
+
+#finit difference learning CONSTANTS
+SAMPLE_RESULT_PATH='results/sample_result.txt'

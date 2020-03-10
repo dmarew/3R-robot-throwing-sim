@@ -6,18 +6,17 @@ from PyQt5.QtCore import Qt, QRunnable, QThreadPool, QTimer
 import numpy as np
 import sys
 import argparse
-import Pyro4
-from Pyro4.errors import CommunicationError
 import os, sys, struct
-
+import fcntl
 
 from utils import *
 from config import *
 from robot import Arm
 from ball import Ball
+from control import control
 class Window(QMainWindow):
 
-    def __init__(self, sim_id, control_params, sim_time):
+    def __init__(self, sim_id, control_params, sim_time, display):
 
         super().__init__()
         self.title = "3R Pitcher"
@@ -25,10 +24,7 @@ class Window(QMainWindow):
         self.left= 150
         self.width = WIDTH
         self.height = HEIGHT
-
         self.sim_id = sim_id
-        sys.excepthook = Pyro4.util.excepthook
-        self.simco_server = Pyro4.Proxy("PYRO:interface@localhost:53546")
         self.arm = Arm()
         self.arm.mode = THROW
         self.ball = Ball(self.arm, M_OBJECT, [1.0, 1.0], [0, 0], [0, 0])
@@ -44,7 +40,8 @@ class Window(QMainWindow):
         self.timer.start(sim_time)
         self.spline_log_file = open('results/sim_{}_spline.txt'.format(self.sim_id), 'w')
         self.ball_pos_log_file = open('results/sim_{}_ball_pos.txt'.format(self.sim_id), 'w')
-        self.InitWindow()
+        if display:
+            self.InitWindow()
 
     def InitWindow(self):
 
@@ -53,10 +50,8 @@ class Window(QMainWindow):
         self.show()
 
     def update_control(self):
-        #if self.servo == SERVO_RATE:
-        self.arm.control(self.clock, control_params)
-        #self.servo = 1
-        #self.servo += 1
+
+        control(self.arm, self.clock, self.control_params)
         self.arm.simulate()
         self.ball.simulate()
         if self.render == RENDER_RATE:
@@ -77,8 +72,21 @@ class Window(QMainWindow):
         self.ball_pos_log_file.write(str(self.ball.position[X]) + ', ' +
                                 str(self.ball.position[Y]) + '\n')
         if(self.arm.release and np.abs(self.ball.position[Y])<0.001):
-            self.simco_server.report_result({'id': self.sim_id, 'distance': self.ball.position[X]})
-            print('Sim {} done with distance {}'.format(self.sim_id, self.ball.position[X]))
+            with open(SAMPLE_RESULT_PATH, 'a') as f:
+                while True:
+                    try:
+                        fcntl.flock(f, fcntl.LOCK_EX)
+                        #print('I have lock {}'.format(self.sim_id))
+                        f.write('{}, {}\n'.format(self.sim_id, self.ball.position[X]))
+                        fcntl.flock(f, fcntl.LOCK_UN)
+                        f.close()
+                        break
+                    except IOError as e:
+                        # raise on unrelated IOErrors
+                        if e.errno != errno.EAGAIN:
+                            raise 'couldnt open file'
+                        else:
+                            time.sleep(0.1)
             exit(0)
 
     def paintEvent(self, event):
@@ -131,6 +139,7 @@ if __name__ == '__main__':
     parser.add_argument('--delta_t3', required=False, type=float)
     parser.add_argument('--sim_id', required=False, default=0, type=int)
     parser.add_argument('--sim_time', required=False, default=5.0, type=float)
+    parser.add_argument('--display', required=False, default=DISPLAY_ON, type=int)
 
 
     args = parser.parse_args()
@@ -140,5 +149,5 @@ if __name__ == '__main__':
         control_params = None
 
     App = QApplication(sys.argv)
-    window = Window(args.sim_id, control_params, args.sim_time)
+    window = Window(args.sim_id, control_params, args.sim_time, args.display)
     sys.exit(App.exec())
