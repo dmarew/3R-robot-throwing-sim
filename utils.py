@@ -47,26 +47,37 @@ def read_result(result_path):
             result[sim_id] = float(distance)
     return result
 def sample_cost(seed_delta_ts, n_samples=3, sampling_radius = 0.01):
-    delta_ts_samples = generate_petrubations(seed_delta_ts, n_samples, sampling_radius=sampling_radius)
+    epsilon = generate_petrubations(n_samples, sampling_radius=sampling_radius)
+    delta_plus_epsilon = seed_delta_ts + epsilon
+    delta_minus_epsilon = seed_delta_ts - epsilon
     flush_result(SAMPLE_RESULT_PATH)
     processes = []
-
-    for sim_id, delta_ts in enumerate(delta_ts_samples):
+    for sim_id, delta_ts in enumerate(delta_plus_epsilon):
         processes.append([sim_id, SIM_TIME, DISPLAY_ON, delta_ts[0], delta_ts[1], delta_ts[2]])
     pool = Pool(processes=n_samples)
     pool.map(run_processes, processes)
     result_dict = read_result(SAMPLE_RESULT_PATH)
     flush_result(SAMPLE_RESULT_PATH)
-    y = np.array([result_dict[str(i)] for i in range(n_samples)])
-    X = np.array([processes[i][3:] for i in range(n_samples)])
-    print('Sampling Done!!!')
-    return X, y
+    Delta_J_plus = np.array([result_dict[str(i)] for i in range(n_samples)])
+    #Delta_plus_epsilon = np.array([processes[i][3:] for i in range(n_samples)])
+    processes = []
+    for sim_id, delta_ts in enumerate(delta_minus_epsilon):
+        processes.append([sim_id, SIM_TIME, DISPLAY_ON, delta_ts[0], delta_ts[1], delta_ts[2]])
+    pool = Pool(processes=n_samples)
+    pool.map(run_processes, processes)
+    result_dict = read_result(SAMPLE_RESULT_PATH)
+    flush_result(SAMPLE_RESULT_PATH)
 
-def generate_petrubations(delta_ts, n_samples, sampling_radius=0.01):
-    temp = delta_ts
-    delta_ts += sampling_radius*np.random.randn(n_samples, len(delta_ts))
-    delta_ts[delta_ts<0] = 0
-    return delta_ts
+    Delta_J_minus = np.array([result_dict[str(i)] for i in range(n_samples)])
+    #Delta_minus_epsilon = np.array([processes[i][3:] for i in range(n_samples)])
+    print('Sampling Done!!!')
+    Delta_J = Delta_J_plus - Delta_J_minus
+
+    return Delta_J_plus, Delta_J_minus, epsilon
+
+def generate_petrubations(n_samples, sampling_radius=0.01, n_params=3):
+    epsilon = np.random.uniform(0, sampling_radius, (n_samples, n_params))
+    return epsilon
 
 def run_processes(process):
     os.system('python3 sim.py --sim_id {} --sim_time {} --display {} --delta_t1 {} --delta_t2 {} --delta_t3 {}'.format(*process))
